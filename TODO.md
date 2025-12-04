@@ -1,11 +1,11 @@
 # TIC TAC TOE, BLAST! - Implementation Plan
 
-## Phase 1: Static Board UI
+## Phase 1: Static Board UI ✅
 **Visible: 3x3 grid with placeholder cells**
-- [ ] Create `GameLive` LiveView at `/game/:id`
-- [ ] Build board component (3x3 grid, DaisyUI styled)
-- [ ] Add color picker buttons (Red/Blue)
-- [ ] Show player position indicator
+- [x] Create `GameLive` LiveView at `/game/:id`
+- [x] Build board component (3x3 grid, DaisyUI styled)
+- [x] Add color picker buttons (Red/Blue)
+- [x] Show player position indicator
 
 **Files:** `lib/tttblast_web/live/game_live.ex`, `router.ex`
 
