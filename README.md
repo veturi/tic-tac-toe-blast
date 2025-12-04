@@ -31,6 +31,8 @@ Visit [localhost:4000/game/test](http://localhost:4000/game/test) to see the gam
 - [x] **Phase 3:** Multiplayer Lobby - Join form, player list, ready states
 - [x] **Phase 4:** Cell Assignment & Center Pick - Public center pick, state transitions
 - [x] **Phase 5:** Color Picking & Reveal - Secret picks, countdown timer, dramatic reveal
-- [ ] **Phase 6:** Scoring & Win Condition
+- [x] **Phase 6:** Scoring & Win Condition - Line counting, BLAST mode, streak bonuses
+
+**MVP Complete!** 🎉
 
 See [TODO.md](TODO.md) for detailed implementation plan.
