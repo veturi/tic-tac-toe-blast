@@ -8,7 +8,7 @@
 import Config
 
 config :tttblast,
-  ecto_repos: [Tttblast.Repo],
+  # ecto_repos: [Tttblast.Repo],  # Database disabled
   generators: [timestamp_type: :utc_datetime]
 
 # Configure the endpoint

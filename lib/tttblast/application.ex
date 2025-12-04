@@ -9,7 +9,7 @@ defmodule Tttblast.Application do
   def start(_type, _args) do
     children = [
       TttblastWeb.Telemetry,
-      Tttblast.Repo,
+      # Tttblast.Repo,  # Database disabled
       {DNSCluster, query: Application.get_env(:tttblast, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Tttblast.PubSub},
       # Game process registry and supervisor
