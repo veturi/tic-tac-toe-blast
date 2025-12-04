@@ -44,12 +44,14 @@
 
 ---
 
-## Phase 5: Color Picking & Reveal
+## Phase 5: Color Picking & Reveal ✅
 **Visible: Pick color secretly, countdown, dramatic reveal**
-- [ ] Non-center players pick color secretly
-- [ ] Countdown timer (3-5 seconds)
-- [ ] Simultaneous reveal animation
-- [ ] Board shows all colors
+- [x] Non-center players pick color secretly
+- [x] Countdown timer (3 seconds)
+- [x] Simultaneous reveal animation
+- [x] Board shows all colors
+- [x] Hide other players' picks during choosing (only see your cell + center's)
+- [x] Pick count indicator ("5/9 players have picked")
 
 **Files:** Update `game.ex`, `game_live.ex`
 

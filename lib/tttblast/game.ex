@@ -9,6 +9,7 @@ defmodule Tttblast.Game do
   alias Phoenix.PubSub
 
   @pubsub Tttblast.PubSub
+  @countdown_seconds 3
 
   # --- Public API ---
 
@@ -69,7 +70,8 @@ defmodule Tttblast.Game do
       round: 0,
       players: %{},
       center_player_id: nil,
-      cells: init_cells()
+      cells: init_cells(),
+      countdown: nil
     }
 
     {:ok, state}
@@ -244,7 +246,11 @@ defmodule Tttblast.Game do
   # Non-center players pick secretly during choosing phase
   defp do_pick_color(%{state: :choosing, center_player_id: center_id} = state, player_id, color)
        when player_id != center_id do
-    new_state = set_player_pick(state, player_id, color)
+    new_state =
+      state
+      |> set_player_pick(player_id, color)
+      |> maybe_start_countdown()
+
     {:ok, new_state}
   end
 
@@ -273,5 +279,43 @@ defmodule Tttblast.Game do
       end)
 
     %{state | players: new_players, cells: new_cells}
+  end
+
+  # Check if all players have picked and start countdown
+  defp maybe_start_countdown(%{state: :choosing} = state) do
+    all_picked = Enum.all?(state.players, fn {_id, p} -> p.pick != nil end)
+
+    if all_picked do
+      start_countdown(state)
+    else
+      state
+    end
+  end
+
+  defp maybe_start_countdown(state), do: state
+
+  defp start_countdown(state) do
+    Process.send_after(self(), :countdown_tick, 1000)
+    %{state | state: :countdown, countdown: @countdown_seconds}
+  end
+
+  # --- Handle Info for Timer ---
+
+  @impl true
+  def handle_info(:countdown_tick, state) do
+    new_countdown = state.countdown - 1
+
+    new_state =
+      if new_countdown <= 0 do
+        # Countdown finished, reveal!
+        %{state | state: :reveal, countdown: 0}
+      else
+        # Continue countdown
+        Process.send_after(self(), :countdown_tick, 1000)
+        %{state | countdown: new_countdown}
+      end
+
+    broadcast(state.id, new_state)
+    {:noreply, new_state}
   end
 end

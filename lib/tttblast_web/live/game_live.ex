@@ -26,7 +26,8 @@ defmodule TttblastWeb.GameLive do
          game_state: game_state.state,
          center_player_id: game_state.center_player_id,
          cells: game_state.cells,
-         players: game_state.players
+         players: game_state.players,
+         countdown: game_state.countdown
        )}
     else
       # Initial static render before WebSocket connects
@@ -42,7 +43,8 @@ defmodule TttblastWeb.GameLive do
          game_state: :connecting,
          center_player_id: nil,
          cells: init_cells(),
-         players: %{}
+         players: %{},
+         countdown: nil
        )}
     end
   end
@@ -78,7 +80,8 @@ defmodule TttblastWeb.GameLive do
        cells: state.cells,
        players: state.players,
        player_cell: player_cell,
-       selected_color: selected_color
+       selected_color: selected_color,
+       countdown: state.countdown
      )}
   end
 
@@ -224,11 +227,25 @@ defmodule TttblastWeb.GameLive do
 
         <!-- Game Playing States (center_pick, choosing, etc.) -->
         <div :if={@game_state != :lobby} class="flex flex-col items-center gap-6">
+          <!-- Countdown Timer -->
+          <div :if={@game_state == :countdown} class="text-center">
+            <div class="text-8xl font-bold text-warning animate-pulse">
+              {@countdown}
+            </div>
+          </div>
+
+          <!-- Reveal Banner -->
+          <div :if={@game_state == :reveal} class="text-center animate-bounce">
+            <div class="text-6xl font-bold text-primary">
+              REVEAL!
+            </div>
+          </div>
+
           <!-- Game State Banner -->
-          <div class={[
+          <div :if={@game_state not in [:countdown, :reveal]} class={[
             "alert w-auto",
             @game_state == :center_pick && "alert-warning",
-            @game_state not in [:lobby, :center_pick] && "alert-info"
+            @game_state == :choosing && "alert-info"
           ]}>
             <span class="text-lg font-bold">
               {game_state_message(@game_state, @center_player_id, @player_id, @players)}
@@ -245,10 +262,11 @@ defmodule TttblastWeb.GameLive do
             <%= for cell <- @cells do %>
               <.cell
                 position={cell.position}
-                color={cell.color}
+                color={visible_color(cell, @game_state, @player_cell, @center_player_id, @players)}
                 is_player_cell={cell.position == @player_cell}
                 has_player={cell.player_id != nil}
                 player_name={get_player_name(@players, cell.player_id)}
+                is_revealed={@game_state == :reveal}
               />
             <% end %>
           </div>
@@ -282,12 +300,19 @@ defmodule TttblastWeb.GameLive do
           </div>
 
           <!-- Status -->
-          <div :if={@selected_color} class="text-center text-base-content/70">
+          <div :if={@selected_color && @game_state == :choosing} class="text-center text-base-content/70">
             You picked <span class={[
               "font-bold",
               @selected_color == :red && "text-error",
               @selected_color == :blue && "text-info"
             ]}>{String.upcase(to_string(@selected_color))}</span>
+          </div>
+
+          <!-- Pick count during choosing -->
+          <div :if={@game_state == :choosing} class="text-center text-base-content/60">
+            <% picks = count_picks(@players) %>
+            {picks}/9 players have picked
+            <span :if={picks == 9} class="text-success font-bold ml-2">All ready!</span>
           </div>
         </div>
 
@@ -338,16 +363,18 @@ defmodule TttblastWeb.GameLive do
   attr :is_player_cell, :boolean, default: false
   attr :has_player, :boolean, default: false
   attr :player_name, :string, default: nil
+  attr :is_revealed, :boolean, default: false
 
   defp cell(assigns) do
     ~H"""
     <div class={[
-      "w-24 h-24 flex flex-col items-center justify-center text-2xl font-bold rounded-lg border-2 transition-all duration-200",
+      "w-24 h-24 flex flex-col items-center justify-center text-2xl font-bold rounded-lg border-2 transition-all duration-300",
       cell_color_class(@color),
       @is_player_cell && @color == nil && "border-primary border-4 bg-primary/10",
       @is_player_cell && @color != nil && "border-4",
       !@is_player_cell && @color == nil && @has_player && "border-base-300 bg-base-100 border-dashed",
-      !@is_player_cell && @color == nil && !@has_player && "border-base-300 bg-base-200 opacity-50"
+      !@is_player_cell && @color == nil && !@has_player && "border-base-300 bg-base-200 opacity-50",
+      @is_revealed && @color != nil && "scale-110 shadow-lg"
     ]}>
       <span>{@position}</span>
       <span :if={@player_name} class="text-xs font-normal truncate max-w-20">{@player_name}</span>
@@ -358,6 +385,49 @@ defmodule TttblastWeb.GameLive do
   defp cell_color_class(nil), do: ""
   defp cell_color_class(:red), do: "bg-error text-error-content border-error"
   defp cell_color_class(:blue), do: "bg-info text-info-content border-info"
+
+  # Determine if a cell's color should be visible
+  # - reveal state: show all colors
+  # - countdown state: hide all colors (suspense!)
+  # - choosing state: show only your cell and center player's cell
+  # - center_pick state: show only center player's cell (public pick)
+  defp visible_color(cell, game_state, player_cell, center_player_id, players) do
+    cond do
+      # Always show on reveal
+      game_state == :reveal ->
+        cell.color
+
+      # Hide all during countdown for suspense
+      game_state == :countdown ->
+        if cell.position == player_cell, do: cell.color, else: nil
+
+      # During choosing, show your own cell and center's cell
+      game_state == :choosing ->
+        center_cell = get_player_cell(players, center_player_id)
+
+        if cell.position == player_cell or cell.position == center_cell do
+          cell.color
+        else
+          nil
+        end
+
+      # During center_pick, show only center's cell
+      game_state == :center_pick ->
+        center_cell = get_player_cell(players, center_player_id)
+        if cell.position == center_cell, do: cell.color, else: nil
+
+      # Default: show all (lobby, etc.)
+      true ->
+        cell.color
+    end
+  end
+
+  defp get_player_cell(players, player_id) do
+    case Map.get(players, player_id) do
+      nil -> nil
+      player -> player.cell
+    end
+  end
 
   # Helper functions
   defp find_player_by_cell(players, cell) do
@@ -374,6 +444,10 @@ defmodule TttblastWeb.GameLive do
 
   defp count_ready(players) do
     Enum.count(players, fn {_id, p} -> p.ready end)
+  end
+
+  defp count_picks(players) do
+    Enum.count(players, fn {_id, p} -> p.pick != nil end)
   end
 
   defp game_state_message(:center_pick, center_player_id, player_id, players) do

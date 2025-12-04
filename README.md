@@ -30,7 +30,7 @@ Visit [localhost:4000/game/test](http://localhost:4000/game/test) to see the gam
 - [x] **Phase 2:** Game GenServer with state machine, Registry, PubSub
 - [x] **Phase 3:** Multiplayer Lobby - Join form, player list, ready states
 - [x] **Phase 4:** Cell Assignment & Center Pick - Public center pick, state transitions
-- [ ] **Phase 5:** Color Picking & Reveal
+- [x] **Phase 5:** Color Picking & Reveal - Secret picks, countdown timer, dramatic reveal
 - [ ] **Phase 6:** Scoring & Win Condition
 
 See [TODO.md](TODO.md) for detailed implementation plan.
