@@ -11,12 +11,12 @@
 
 ---
 
-## Phase 2: Game GenServer
+## Phase 2: Game GenServer ✅
 **Visible: Game state in LiveView, state transitions**
-- [ ] Create `Game` GenServer with state machine
-- [ ] States: `lobby → center_pick → choosing → countdown → reveal → scoring`
-- [ ] Registry for game lookup by ID
-- [ ] Basic start/join/leave API
+- [x] Create `Game` GenServer with state machine
+- [x] States: `lobby → center_pick → choosing → countdown → reveal → scoring`
+- [x] Registry for game lookup by ID
+- [x] Basic start/join/leave API
 
 **Files:** `lib/tttblast/game.ex`, `lib/tttblast/game_supervisor.ex`
 

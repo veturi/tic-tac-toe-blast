@@ -12,8 +12,9 @@ defmodule Tttblast.Application do
       Tttblast.Repo,
       {DNSCluster, query: Application.get_env(:tttblast, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Tttblast.PubSub},
-      # Start a worker by calling: Tttblast.Worker.start_link(arg)
-      # {Tttblast.Worker, arg},
+      # Game process registry and supervisor
+      {Registry, keys: :unique, name: Tttblast.GameRegistry},
+      Tttblast.GameSupervisor,
       # Start to serve requests, typically the last entry
       TttblastWeb.Endpoint
     ]
