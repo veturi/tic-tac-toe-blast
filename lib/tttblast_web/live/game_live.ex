@@ -27,7 +27,11 @@ defmodule TttblastWeb.GameLive do
          center_player_id: game_state.center_player_id,
          cells: game_state.cells,
          players: game_state.players,
-         countdown: game_state.countdown
+         countdown: game_state.countdown,
+         round: game_state.round,
+         round_result: game_state.round_result,
+         winner: game_state.winner,
+         completed_lines: game_state.completed_lines
        )}
     else
       # Initial static render before WebSocket connects
@@ -44,7 +48,11 @@ defmodule TttblastWeb.GameLive do
          center_player_id: nil,
          cells: init_cells(),
          players: %{},
-         countdown: nil
+         countdown: nil,
+         round: 0,
+         round_result: nil,
+         winner: nil,
+         completed_lines: %{red: [], blue: []}
        )}
     end
   end
@@ -81,7 +89,11 @@ defmodule TttblastWeb.GameLive do
        players: state.players,
        player_cell: player_cell,
        selected_color: selected_color,
-       countdown: state.countdown
+       countdown: state.countdown,
+       round: state.round,
+       round_result: state.round_result,
+       winner: state.winner,
+       completed_lines: state.completed_lines
      )}
   end
 
@@ -128,6 +140,11 @@ defmodule TttblastWeb.GameLive do
       {:error, _reason} ->
         {:noreply, socket}
     end
+  end
+
+  def handle_event("next_round", _params, socket) do
+    Game.next_round(socket.assigns.game_id)
+    {:noreply, socket}
   end
 
   defp init_cells do
@@ -314,11 +331,96 @@ defmodule TttblastWeb.GameLive do
             {picks}/9 players have picked
             <span :if={picks == 9} class="text-success font-bold ml-2">All ready!</span>
           </div>
+
+          <!-- Scoring Results -->
+          <div :if={@game_state == :scoring && @round_result} class="w-full max-w-md">
+            <!-- Winner Banner (if game over) -->
+            <div :if={@winner} class="text-center mb-6">
+              <div class="text-5xl font-bold text-warning animate-bounce mb-2">
+                🎉 BLAST! 🎉
+              </div>
+              <div class="text-2xl font-bold text-primary">
+                {get_player_name(@players, @winner)} WINS!
+              </div>
+            </div>
+
+            <!-- Round Result Card -->
+            <div class="card bg-base-200 shadow-xl p-6 mb-4">
+              <h3 class="text-xl font-bold text-center mb-4">Round {@round} Results</h3>
+
+              <!-- Line counts -->
+              <div class="flex justify-center gap-8 mb-4">
+                <div class="text-center">
+                  <div class="text-3xl font-bold text-error">{@round_result.red_lines}</div>
+                  <div class="text-sm text-base-content/70">Red Lines</div>
+                </div>
+                <div class="text-center">
+                  <div class="text-3xl font-bold text-base-content/50">vs</div>
+                </div>
+                <div class="text-center">
+                  <div class="text-3xl font-bold text-info">{@round_result.blue_lines}</div>
+                  <div class="text-sm text-base-content/70">Blue Lines</div>
+                </div>
+              </div>
+
+              <!-- Rule applied -->
+              <div class="text-center mb-4">
+                <div class={[
+                  "badge badge-lg",
+                  @round_result.winning_color == :red && "badge-error",
+                  @round_result.winning_color == :blue && "badge-info",
+                  @round_result.winning_color == nil && "badge-warning"
+                ]}>
+                  {rule_message(@round_result)}
+                </div>
+              </div>
+
+              <!-- Pick distribution -->
+              <div class="text-center text-sm text-base-content/60 mb-4">
+                Red: {@round_result.red_picks} picks | Blue: {@round_result.blue_picks} picks
+              </div>
+            </div>
+
+            <!-- Scoreboard -->
+            <div class="card bg-base-200 shadow-xl p-6 mb-4">
+              <h3 class="text-lg font-bold text-center mb-3">Scoreboard</h3>
+              <div class="space-y-2">
+                <%= for {_id, player} <- Enum.sort_by(@players, fn {_, p} -> -p.score end) do %>
+                  <div class={[
+                    "flex justify-between items-center p-2 rounded",
+                    player.name == get_player_name(@players, @player_id) && "bg-primary/20"
+                  ]}>
+                    <div class="flex items-center gap-2">
+                      <span class="font-medium">{player.name}</span>
+                      <span :if={player.streak >= 2} class="badge badge-warning badge-sm">
+                        🔥 {player.streak}
+                      </span>
+                    </div>
+                    <span class={[
+                      "font-bold text-lg",
+                      player.score > 0 && "text-success",
+                      player.score < 0 && "text-error",
+                      player.score == 0 && "text-base-content/70"
+                    ]}>
+                      {if player.score > 0, do: "+", else: ""}{player.score}
+                    </span>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+
+            <!-- Next Round Button -->
+            <div :if={!@winner} class="text-center">
+              <button phx-click="next_round" class="btn btn-primary btn-lg">
+                Next Round →
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Game State Debug -->
         <div class="mt-6 text-center text-sm text-base-content/50">
-          State: {@game_state} | Round: {Map.get(assigns, :round, 0)}
+          State: {@game_state} | Round: {@round}
         </div>
       </div>
     </div>
@@ -387,14 +489,14 @@ defmodule TttblastWeb.GameLive do
   defp cell_color_class(:blue), do: "bg-info text-info-content border-info"
 
   # Determine if a cell's color should be visible
-  # - reveal state: show all colors
+  # - reveal/scoring state: show all colors
   # - countdown state: hide all colors (suspense!)
   # - choosing state: show only your cell and center player's cell
   # - center_pick state: show only center player's cell (public pick)
   defp visible_color(cell, game_state, player_cell, center_player_id, players) do
     cond do
-      # Always show on reveal
-      game_state == :reveal ->
+      # Always show on reveal and scoring
+      game_state in [:reveal, :scoring] ->
         cell.color
 
       # Hide all during countdown for suspense
@@ -472,12 +574,28 @@ defmodule TttblastWeb.GameLive do
   end
 
   defp game_state_message(:scoring, _center_player_id, _player_id, _players) do
-    "Calculating scores..."
+    "Round Complete!"
   end
 
   defp game_state_message(state, _center_player_id, _player_id, _players) do
     "Game: #{state}"
   end
+
+  defp rule_message(%{is_sweep: true}) do
+    "SWEEP! All scores reset!"
+  end
+
+  defp rule_message(%{rule_applied: :net_score, winning_color: color, net: net}) do
+    color_name = String.upcase(to_string(color))
+    "#{color_name} wins by #{abs(net)} line#{if abs(net) > 1, do: "s", else: ""}!"
+  end
+
+  defp rule_message(%{rule_applied: :minority, winning_color: color}) do
+    color_name = String.upcase(to_string(color))
+    "Tie! #{color_name} minority wins!"
+  end
+
+  defp rule_message(_), do: ""
 
   defp should_show_color_picker?(:center_pick, center_player_id, player_id) do
     center_player_id == player_id

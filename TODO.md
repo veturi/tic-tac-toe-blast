@@ -57,13 +57,13 @@
 
 ---
 
-## Phase 6: Scoring & Win Condition
+## Phase 6: Scoring & Win Condition ✅
 **Visible: Line counting, score update, winner announcement**
-- [ ] Count lines per color (8 possible lines)
-- [ ] Calculate net score & apply scoring rules
-- [ ] Streak bonus tracking
-- [ ] BLAST mode: first clear lead wins
-- [ ] Game over / next round flow
+- [x] Count lines per color (8 possible lines)
+- [x] Calculate net score & apply scoring rules
+- [x] Streak bonus tracking
+- [x] BLAST mode: first clear lead wins
+- [x] Game over / next round flow
 
 **Files:** `lib/tttblast/scoring.ex`, update `game.ex`, `game_live.ex`
 

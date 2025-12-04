@@ -7,9 +7,11 @@ defmodule Tttblast.Game do
   use GenServer
 
   alias Phoenix.PubSub
+  alias Tttblast.Scoring
 
   @pubsub Tttblast.PubSub
   @countdown_seconds 3
+  @reveal_duration_ms 3000
 
   # --- Public API ---
 
@@ -31,6 +33,10 @@ defmodule Tttblast.Game do
 
   def pick_color(game_id, player_id, color) when color in [:red, :blue] do
     GenServer.call(via_tuple(game_id), {:pick_color, player_id, color})
+  end
+
+  def next_round(game_id) do
+    GenServer.call(via_tuple(game_id), :next_round)
   end
 
   def get_state(game_id) do
@@ -71,7 +77,10 @@ defmodule Tttblast.Game do
       players: %{},
       center_player_id: nil,
       cells: init_cells(),
-      countdown: nil
+      countdown: nil,
+      round_result: nil,
+      winner: nil,
+      completed_lines: %{red: [], blue: []}
     }
 
     {:ok, state}
@@ -131,6 +140,17 @@ defmodule Tttblast.Game do
       {:error, reason} ->
         {:reply, {:error, reason}, state}
     end
+  end
+
+  @impl true
+  def handle_call(:next_round, _from, %{state: :scoring, winner: nil} = state) do
+    new_state = start_next_round(state)
+    broadcast(state.id, new_state)
+    {:reply, :ok, new_state}
+  end
+
+  def handle_call(:next_round, _from, state) do
+    {:reply, {:error, :invalid_state}, state}
   end
 
   # --- Private Helpers ---
@@ -307,7 +327,8 @@ defmodule Tttblast.Game do
 
     new_state =
       if new_countdown <= 0 do
-        # Countdown finished, reveal!
+        # Countdown finished, reveal! Schedule scoring after reveal duration
+        Process.send_after(self(), :calculate_scoring, @reveal_duration_ms)
         %{state | state: :reveal, countdown: 0}
       else
         # Continue countdown
@@ -317,5 +338,85 @@ defmodule Tttblast.Game do
 
     broadcast(state.id, new_state)
     {:noreply, new_state}
+  end
+
+  @impl true
+  def handle_info(:calculate_scoring, %{state: :reveal} = state) do
+    new_state = calculate_and_apply_scoring(state)
+    broadcast(state.id, new_state)
+    {:noreply, new_state}
+  end
+
+  def handle_info(:calculate_scoring, state) do
+    {:noreply, state}
+  end
+
+  # --- Scoring Logic ---
+
+  defp calculate_and_apply_scoring(state) do
+    {result_type, updated_players, round_result} =
+      Scoring.calculate_round(state.players, state.cells, state.center_player_id)
+
+    # Get completed lines for highlighting
+    red_lines = Scoring.completed_lines_for_color(state.cells, :red)
+    blue_lines = Scoring.completed_lines_for_color(state.cells, :blue)
+
+    # Check for BLAST winner
+    winner =
+      case Scoring.check_blast_winner(updated_players) do
+        {:winner, player_id} -> player_id
+        :no_winner -> nil
+      end
+
+    new_state =
+      if result_type == :sweep do
+        # On sweep, we still go to scoring but with sweep indicator
+        %{state |
+          state: :scoring,
+          players: updated_players,
+          round_result: round_result,
+          winner: winner,
+          completed_lines: %{red: red_lines, blue: blue_lines}
+        }
+      else
+        %{state |
+          state: :scoring,
+          players: updated_players,
+          round_result: round_result,
+          winner: winner,
+          completed_lines: %{red: red_lines, blue: blue_lines}
+        }
+      end
+
+    new_state
+  end
+
+  defp start_next_round(state) do
+    # Pick new random center player (different from last round if possible)
+    player_ids = Map.keys(state.players)
+    other_players = Enum.reject(player_ids, &(&1 == state.center_player_id))
+    new_center = if other_players == [], do: hd(player_ids), else: Enum.random(other_players)
+
+    # Reset picks and cells for new round
+    reset_players =
+      Enum.map(state.players, fn {id, player} ->
+        {id, %{player | pick: nil}}
+      end)
+      |> Map.new()
+
+    reset_cells =
+      Enum.map(state.cells, fn cell ->
+        %{cell | color: nil}
+      end)
+
+    %{state |
+      state: :center_pick,
+      round: state.round + 1,
+      center_player_id: new_center,
+      players: reset_players,
+      cells: reset_cells,
+      round_result: nil,
+      completed_lines: %{red: [], blue: []}
+    }
   end
 end
