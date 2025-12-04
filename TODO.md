@@ -22,12 +22,12 @@
 
 ---
 
-## Phase 3: Multiplayer Lobby
+## Phase 3: Multiplayer Lobby ✅
 **Visible: Player list, ready buttons, join with name**
-- [ ] Phoenix Presence for player tracking
-- [ ] Join form (name input)
-- [ ] Player list showing 9 slots + ready state
-- [ ] Auto-start when 9 players ready
+- [x] Phoenix Presence for player tracking
+- [x] Join form (name input)
+- [x] Player list showing 9 slots + ready state
+- [x] Auto-start when 9 players ready
 
 **Files:** `lib/tttblast_web/presence.ex`, update `game_live.ex`
 

@@ -15,6 +15,8 @@ defmodule Tttblast.Application do
       # Game process registry and supervisor
       {Registry, keys: :unique, name: Tttblast.GameRegistry},
       Tttblast.GameSupervisor,
+      # Presence for tracking players in lobbies
+      TttblastWeb.Presence,
       # Start to serve requests, typically the last entry
       TttblastWeb.Endpoint
     ]

@@ -24,6 +24,10 @@ defmodule Tttblast.Game do
     GenServer.call(via_tuple(game_id), {:leave, player_id})
   end
 
+  def toggle_ready(game_id, player_id) do
+    GenServer.call(via_tuple(game_id), {:toggle_ready, player_id})
+  end
+
   def get_state(game_id) do
     GenServer.call(via_tuple(game_id), :get_state)
   end
@@ -91,6 +95,26 @@ defmodule Tttblast.Game do
     {:reply, state, state}
   end
 
+  @impl true
+  def handle_call({:toggle_ready, player_id}, _from, state) do
+    case Map.get(state.players, player_id) do
+      nil ->
+        {:reply, {:error, :not_found}, state}
+
+      player ->
+        new_ready = not player.ready
+        updated_player = %{player | ready: new_ready}
+        new_players = Map.put(state.players, player_id, updated_player)
+        new_state = %{state | players: new_players}
+
+        # Check if all 9 players are ready to start
+        new_state = maybe_start_game(new_state)
+
+        broadcast(state.id, new_state)
+        {:reply, {:ok, new_ready}, new_state}
+    end
+  end
+
   # --- Private Helpers ---
 
   defp init_cells do
@@ -121,7 +145,8 @@ defmodule Tttblast.Game do
             cell: cell,
             pick: nil,
             score: 0,
-            streak: 0
+            streak: 0,
+            ready: false
           }
 
           new_players = Map.put(state.players, player_id, player)
@@ -162,5 +187,26 @@ defmodule Tttblast.Game do
 
         %{state | players: new_players, cells: new_cells}
     end
+  end
+
+  defp maybe_start_game(%{state: :lobby, players: players} = state) do
+    player_count = map_size(players)
+    all_ready = Enum.all?(players, fn {_id, p} -> p.ready end)
+
+    if player_count == 9 and all_ready do
+      start_game(state)
+    else
+      state
+    end
+  end
+
+  defp maybe_start_game(state), do: state
+
+  defp start_game(state) do
+    # Pick random center player
+    player_ids = Map.keys(state.players)
+    center_player_id = Enum.random(player_ids)
+
+    %{state | state: :center_pick, center_player_id: center_player_id, round: 1}
   end
 end
