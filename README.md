@@ -28,8 +28,8 @@ Visit [localhost:4000/game/test](http://localhost:4000/game/test) to see the gam
 
 - [x] **Phase 1:** Static Board UI - 3x3 grid, color picker, player position
 - [x] **Phase 2:** Game GenServer with state machine, Registry, PubSub
-- [ ] **Phase 3:** Multiplayer Lobby with Phoenix Presence
-- [ ] **Phase 4:** Cell Assignment & Center Pick
+- [x] **Phase 3:** Multiplayer Lobby - Join form, player list, ready states
+- [x] **Phase 4:** Cell Assignment & Center Pick - Public center pick, state transitions
 - [ ] **Phase 5:** Color Picking & Reveal
 - [ ] **Phase 6:** Scoring & Win Condition
 
