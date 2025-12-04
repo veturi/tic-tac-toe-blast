@@ -33,12 +33,12 @@
 
 ---
 
-## Phase 4: Cell Assignment & Center Pick
+## Phase 4: Cell Assignment & Center Pick ✅
 **Visible: Each player sees their assigned cell, center player picks first**
-- [ ] Random cell assignment (1-9) on game start
-- [ ] Random center selection
-- [ ] Center pick UI (public choice)
-- [ ] Transition to `choosing` state after center picks
+- [x] Random cell assignment (1-9) on game start
+- [x] Random center selection
+- [x] Center pick UI (public choice)
+- [x] Transition to `choosing` state after center picks
 
 **Files:** Update `game.ex`, `game_live.ex`
 

@@ -28,6 +28,10 @@ defmodule Tttblast.Game do
     GenServer.call(via_tuple(game_id), {:toggle_ready, player_id})
   end
 
+  def pick_color(game_id, player_id, color) when color in [:red, :blue] do
+    GenServer.call(via_tuple(game_id), {:pick_color, player_id, color})
+  end
+
   def get_state(game_id) do
     GenServer.call(via_tuple(game_id), :get_state)
   end
@@ -112,6 +116,18 @@ defmodule Tttblast.Game do
 
         broadcast(state.id, new_state)
         {:reply, {:ok, new_ready}, new_state}
+    end
+  end
+
+  @impl true
+  def handle_call({:pick_color, player_id, color}, _from, state) do
+    case do_pick_color(state, player_id, color) do
+      {:ok, new_state} ->
+        broadcast(state.id, new_state)
+        {:reply, :ok, new_state}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
     end
   end
 
@@ -208,5 +224,54 @@ defmodule Tttblast.Game do
     center_player_id = Enum.random(player_ids)
 
     %{state | state: :center_pick, center_player_id: center_player_id, round: 1}
+  end
+
+  # Center player picks first (publicly) - then transition to choosing
+  defp do_pick_color(%{state: :center_pick, center_player_id: center_id} = state, player_id, color)
+       when player_id == center_id do
+    new_state =
+      state
+      |> set_player_pick(player_id, color)
+      |> Map.put(:state, :choosing)
+
+    {:ok, new_state}
+  end
+
+  defp do_pick_color(%{state: :center_pick}, _player_id, _color) do
+    {:error, :not_center_player}
+  end
+
+  # Non-center players pick secretly during choosing phase
+  defp do_pick_color(%{state: :choosing, center_player_id: center_id} = state, player_id, color)
+       when player_id != center_id do
+    new_state = set_player_pick(state, player_id, color)
+    {:ok, new_state}
+  end
+
+  defp do_pick_color(%{state: :choosing}, _player_id, _color) do
+    {:error, :center_cannot_pick_again}
+  end
+
+  defp do_pick_color(_state, _player_id, _color) do
+    {:error, :invalid_state}
+  end
+
+  defp set_player_pick(state, player_id, color) do
+    # Update player's pick
+    player = Map.get(state.players, player_id)
+    updated_player = %{player | pick: color}
+    new_players = Map.put(state.players, player_id, updated_player)
+
+    # Update cell's color
+    new_cells =
+      Enum.map(state.cells, fn cell ->
+        if cell.player_id == player_id do
+          %{cell | color: color}
+        else
+          cell
+        end
+      end)
+
+    %{state | players: new_players, cells: new_cells}
   end
 end

@@ -55,11 +55,20 @@ defmodule TttblastWeb.GameLive do
 
   # Handle game state broadcasts from PubSub
   def handle_info({:game_state, state}, socket) do
-    # Find current player's cell (may have changed if we rejoined)
+    # Find current player's data
+    my_player = Map.get(state.players, socket.assigns.player_id)
+
     player_cell =
-      case Map.get(state.players, socket.assigns.player_id) do
+      case my_player do
         nil -> socket.assigns.player_cell
         player -> player.cell
+      end
+
+    # Sync selected_color from player's pick in game state
+    selected_color =
+      case my_player do
+        nil -> socket.assigns.selected_color
+        player -> player.pick
       end
 
     {:noreply,
@@ -68,7 +77,8 @@ defmodule TttblastWeb.GameLive do
        center_player_id: state.center_player_id,
        cells: state.cells,
        players: state.players,
-       player_cell: player_cell
+       player_cell: player_cell,
+       selected_color: selected_color
      )}
   end
 
@@ -107,19 +117,14 @@ defmodule TttblastWeb.GameLive do
 
   def handle_event("pick_color", %{"color" => color}, socket) do
     color_atom = String.to_existing_atom(color)
-    player_cell = socket.assigns.player_cell
 
-    # Update the player's cell locally for now (Phase 5 will move this to GenServer)
-    cells =
-      Enum.map(socket.assigns.cells, fn cell ->
-        if cell.position == player_cell do
-          %{cell | color: color_atom}
-        else
-          cell
-        end
-      end)
+    case Game.pick_color(socket.assigns.game_id, socket.assigns.player_id, color_atom) do
+      :ok ->
+        {:noreply, assign(socket, selected_color: color_atom)}
 
-    {:noreply, assign(socket, selected_color: color_atom, cells: cells)}
+      {:error, _reason} ->
+        {:noreply, socket}
+    end
   end
 
   defp init_cells do
