@@ -1,4 +1,4 @@
-# TIC TAC TOE, BLAST! — PRD v0.1
+# TIC TAC TOE, BLAST! — PRD v1.0
 
 ## ONE-LINER
 
@@ -32,17 +32,17 @@
 ## WIN CONDITIONS
 
 - **BLAST:** First player with clear lead after any round
-- **Classic:** 7 rounds, highest score wins
 
 ---
 
 ## TECH
 
-Phoenix + LiveView + Daisy UI + TailwindCSS + Fly.io
+Phoenix + LiveView + DaisyUI + TailwindCSS + Fly.io
 
 - Game room = GenServer holding state
-- Players connect via Phoenix Channel
+- Players connect via Phoenix LiveView
 - Phoenix Presence for lobby/ready state
+- PubSub for real-time broadcasts
 - State machine: `lobby → center_pick → choosing → countdown → reveal → scoring → repeat`
 
 ---
@@ -50,32 +50,40 @@ Phoenix + LiveView + Daisy UI + TailwindCSS + Fly.io
 ## DATA MODEL
 
 ```
-Game: id, mode, round, state, center_player_id, cells[], scores{}, streak{}
-Player: id, name, game_id, cell_position, current_pick, score, streak_count
-Cell: position (1-9), player_id, color (nil | red | blue), revealed
+Game: id, round, state, center_player_id, cells[], players{}, round_result{}
+Player: id, name, cell (1-9), pick (:red/:blue/nil), score, streak, ready, is_bot
+Cell: position (1-9), player_id, color (:red/:blue/nil)
 ```
 
 ---
 
-## MVP SCOPE
+## IMPLEMENTED FEATURES
 
-- [ ] Single game room
-- [ ] Join with name
-- [ ] 9-player lobby with ready states
-- [ ] Random cell + center assignment
-- [ ] Center pick → others pick → reveal flow
-- [ ] Scoring logic
-- [ ] BLAST mode win condition
-- [ ] Basic UI showing board + scores
+### Core MVP (Complete)
+- [x] Dynamic game rooms (any ID creates a room)
+- [x] Join with name
+- [x] 9-player lobby with ready states
+- [x] Random cell + center assignment
+- [x] Center pick → others pick → reveal flow
+- [x] Scoring logic with all rules
+- [x] BLAST mode win condition
+- [x] Streak bonus tracking
+- [x] Full UI showing board + scores + round results
+
+### Beyond MVP
+- [x] AI bot players to fill empty slots
+- [x] In-game chat
+- [x] Dark/light theme toggle
+- [x] Landing page with rules explanation
+- [x] Multiple concurrent games (via dynamic rooms)
 
 ---
 
-## NOT IN MVP
+## NOT IMPLEMENTED
 
 - Auth
-- Persistence
-- Multiple concurrent games
-- Classic mode
+- Persistence (games are in-memory only)
+- Classic mode (7-round variant)
 - Powerups
 - Cosmetics
 - Mobile optimization
@@ -85,4 +93,3 @@ Cell: position (1-9), player_id, color (nil | red | blue), revealed
 ## SUCCESS METRIC
 
 9 friends play it at a bar and someone yells "WHAT?!" at the reveal.
-

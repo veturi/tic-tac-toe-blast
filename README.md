@@ -4,35 +4,42 @@
 
 ## How It Works
 
-1. 9 players join a lobby, each assigned a random fixed cell (1-9)
-2. A random center player is announced and picks a color publicly
-3. Other 8 players pick secretly, then countdown and simultaneous reveal
-4. Score calculated based on completed lines, repeat until winner
+1. **Join** - 9 players join a lobby, each assigned a random fixed cell (1-9)
+2. **Center Picks** - A random center player picks a color publicly (Red or Blue)
+3. **Secret Vote** - Other 8 players pick secretly, then countdown and simultaneous reveal
+4. **Score** - Points awarded based on completed lines, repeat until someone has a clear lead
 
-## Getting Started
+## Quick Start
 
 ```bash
 mix setup
 mix phx.server
 ```
 
-Visit [localhost:4000/game/test](http://localhost:4000/game/test) to see the game board.
+Visit [localhost:4000](http://localhost:4000) to play.
+
+## Scoring Rules
+
+- Count complete lines per color (8 possible: 3 rows, 3 cols, 2 diags)
+- **Net ≠ 0**: Winners get +1 per line advantage, losers get -1 each
+- **Tie (net = 0)**: Minority color wins (+1 each), majority loses (-1 each)
+- **Full Sweep (9-0)**: All scores reset except center keeps theirs
+- **Streak Bonus**: +1/+2/+3 for 2/3/4+ consecutive wins
+
+## Win Condition (BLAST Mode)
+
+First player with a **clear lead** after any round wins instantly.
+
+## Features
+
+- Real-time multiplayer via Phoenix LiveView
+- AI bots to fill empty slots
+- In-game chat
+- Dark/light theme
+- No account required
 
 ## Tech Stack
 
-- Phoenix + LiveView
+- Phoenix 1.8 + LiveView
 - DaisyUI + TailwindCSS
-- Fly.io (deployment target)
-
-## Implementation Status
-
-- [x] **Phase 1:** Static Board UI - 3x3 grid, color picker, player position
-- [x] **Phase 2:** Game GenServer with state machine, Registry, PubSub
-- [x] **Phase 3:** Multiplayer Lobby - Join form, player list, ready states
-- [x] **Phase 4:** Cell Assignment & Center Pick - Public center pick, state transitions
-- [x] **Phase 5:** Color Picking & Reveal - Secret picks, countdown timer, dramatic reveal
-- [x] **Phase 6:** Scoring & Win Condition - Line counting, BLAST mode, streak bonuses
-
-**MVP Complete!** 🎉
-
-See [TODO.md](TODO.md) for detailed implementation plan.
+- Fly.io (deployment)
