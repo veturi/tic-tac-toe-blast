@@ -39,6 +39,10 @@ defmodule Tttblast.Game do
     GenServer.call(via_tuple(game_id), :next_round)
   end
 
+  def start_with_bots(game_id) do
+    GenServer.call(via_tuple(game_id), :start_with_bots)
+  end
+
   def get_state(game_id) do
     GenServer.call(via_tuple(game_id), :get_state)
   end
@@ -153,6 +157,17 @@ defmodule Tttblast.Game do
     {:reply, {:error, :invalid_state}, state}
   end
 
+  @impl true
+  def handle_call(:start_with_bots, _from, %{state: :lobby} = state) do
+    new_state = fill_with_bots_and_start(state)
+    broadcast(state.id, new_state)
+    {:reply, :ok, new_state}
+  end
+
+  def handle_call(:start_with_bots, _from, state) do
+    {:reply, {:error, :not_in_lobby}, state}
+  end
+
   # --- Private Helpers ---
 
   defp init_cells do
@@ -184,7 +199,8 @@ defmodule Tttblast.Game do
             pick: nil,
             score: 0,
             streak: 0,
-            ready: false
+            ready: false,
+            is_bot: false
           }
 
           new_players = Map.put(state.players, player_id, player)
@@ -240,13 +256,92 @@ defmodule Tttblast.Game do
 
   defp maybe_start_game(state), do: state
 
+  defp fill_with_bots_and_start(state) do
+    # Find available cells (not taken by human players)
+    taken_cells = state.players |> Map.values() |> Enum.map(& &1.cell) |> MapSet.new()
+    available_cells = Enum.reject(1..9, &MapSet.member?(taken_cells, &1))
+
+    # Create bots for empty slots
+    {new_players, new_cells, _} =
+      Enum.reduce(available_cells, {state.players, state.cells, 1}, fn cell,
+                                                                       {players, cells, bot_num} ->
+        bot_id = "bot_#{:erlang.unique_integer([:positive])}"
+
+        bot = %{
+          name: "Bot #{bot_num}",
+          cell: cell,
+          pick: nil,
+          score: 0,
+          streak: 0,
+          ready: true,
+          is_bot: true
+        }
+
+        updated_players = Map.put(players, bot_id, bot)
+
+        updated_cells =
+          Enum.map(cells, fn c ->
+            if c.position == cell, do: %{c | player_id: bot_id}, else: c
+          end)
+
+        {updated_players, updated_cells, bot_num + 1}
+      end)
+
+    # Mark all existing human players as ready
+    ready_players =
+      Enum.map(new_players, fn {id, player} ->
+        {id, %{player | ready: true}}
+      end)
+      |> Map.new()
+
+    # Start the game
+    %{state | players: ready_players, cells: new_cells}
+    |> start_game()
+  end
+
   defp start_game(state) do
     # Pick random center player
     player_ids = Map.keys(state.players)
     center_player_id = Enum.random(player_ids)
 
     %{state | state: :center_pick, center_player_id: center_player_id, round: 1}
+    |> trigger_bot_picks()
   end
+
+  # Trigger bot picks based on game state
+  defp trigger_bot_picks(%{state: :center_pick, center_player_id: center_id} = state) do
+    center_player = Map.get(state.players, center_id)
+
+    if center_player && center_player.is_bot do
+      # Bot center picks random color
+      color = Enum.random([:red, :blue])
+
+      case do_pick_color(state, center_id, color) do
+        {:ok, new_state} -> new_state
+        {:error, _} -> state
+      end
+    else
+      state
+    end
+  end
+
+  defp trigger_bot_picks(%{state: :choosing, center_player_id: center_id} = state) do
+    # All non-center bots pick
+    bot_players =
+      state.players
+      |> Enum.filter(fn {id, p} -> p.is_bot && id != center_id && p.pick == nil end)
+
+    Enum.reduce(bot_players, state, fn {bot_id, _bot}, acc_state ->
+      color = Enum.random([:red, :blue])
+
+      case do_pick_color(acc_state, bot_id, color) do
+        {:ok, new_state} -> new_state
+        {:error, _} -> acc_state
+      end
+    end)
+  end
+
+  defp trigger_bot_picks(state), do: state
 
   # Center player picks first (publicly) - then transition to choosing
   defp do_pick_color(%{state: :center_pick, center_player_id: center_id} = state, player_id, color)
@@ -255,6 +350,7 @@ defmodule Tttblast.Game do
       state
       |> set_player_pick(player_id, color)
       |> Map.put(:state, :choosing)
+      |> trigger_bot_picks()
 
     {:ok, new_state}
   end
@@ -418,5 +514,6 @@ defmodule Tttblast.Game do
       round_result: nil,
       completed_lines: %{red: [], blue: []}
     }
+    |> trigger_bot_picks()
   end
 end

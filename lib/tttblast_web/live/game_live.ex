@@ -130,6 +130,11 @@ defmodule TttblastWeb.GameLive do
     {:noreply, socket}
   end
 
+  def handle_event("start_with_bots", _params, socket) do
+    Game.start_with_bots(socket.assigns.game_id)
+    {:noreply, socket}
+  end
+
   def handle_event("pick_color", %{"color" => color}, socket) do
     color_atom = String.to_existing_atom(color)
 
@@ -219,6 +224,19 @@ defmodule TttblastWeb.GameLive do
             <!-- Ready Count -->
             <div class="text-center mt-4 text-base-content/70">
               {count_ready(@players)}/9 players ready
+            </div>
+
+            <!-- Start with Bots Button -->
+            <div class="mt-4">
+              <button
+                phx-click="start_with_bots"
+                class="btn btn-secondary btn-outline w-full"
+              >
+                Start with Bots
+              </button>
+              <div class="text-center mt-2 text-xs text-base-content/50">
+                Fill empty slots with AI players
+              </div>
             </div>
           </div>
 
@@ -388,10 +406,15 @@ defmodule TttblastWeb.GameLive do
                 <%= for {_id, player} <- Enum.sort_by(@players, fn {_, p} -> -p.score end) do %>
                   <div class={[
                     "flex justify-between items-center p-2 rounded",
-                    player.name == get_player_name(@players, @player_id) && "bg-primary/20"
+                    player.name == get_player_name(@players, @player_id) && "bg-primary/20",
+                    Map.get(player, :is_bot) && "opacity-70"
                   ]}>
                     <div class="flex items-center gap-2">
-                      <span class="font-medium">{player.name}</span>
+                      <span :if={Map.get(player, :is_bot)} class="badge badge-ghost badge-xs">BOT</span>
+                      <span class={[
+                        "font-medium",
+                        Map.get(player, :is_bot) && "italic"
+                      ]}>{player.name}</span>
                       <span :if={player.streak >= 2} class="badge badge-warning badge-sm">
                         🔥 {player.streak}
                       </span>
@@ -443,7 +466,12 @@ defmodule TttblastWeb.GameLive do
         <span class="badge badge-sm">{@slot}</span>
         <%= if @player do %>
           <% {_id, p} = @player %>
-          <span class={["font-medium", @is_you && "text-primary"]}>
+          <span :if={Map.get(p, :is_bot)} class="badge badge-ghost badge-xs">BOT</span>
+          <span class={[
+            "font-medium",
+            @is_you && "text-primary",
+            Map.get(p, :is_bot) && "text-base-content/60 italic"
+          ]}>
             {p.name}{if @is_you, do: " (you)", else: ""}
           </span>
         <% else %>
