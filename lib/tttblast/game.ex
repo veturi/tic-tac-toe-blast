@@ -43,6 +43,10 @@ defmodule Tttblast.Game do
     GenServer.call(via_tuple(game_id), :start_with_bots)
   end
 
+  def send_chat(game_id, player_id, message) do
+    GenServer.call(via_tuple(game_id), {:send_chat, player_id, message})
+  end
+
   def get_state(game_id) do
     GenServer.call(via_tuple(game_id), :get_state)
   end
@@ -84,7 +88,8 @@ defmodule Tttblast.Game do
       countdown: nil,
       round_result: nil,
       winner: nil,
-      completed_lines: %{red: [], blue: []}
+      completed_lines: %{red: [], blue: []},
+      chat_messages: []
     }
 
     {:ok, state}
@@ -166,6 +171,34 @@ defmodule Tttblast.Game do
 
   def handle_call(:start_with_bots, _from, state) do
     {:reply, {:error, :not_in_lobby}, state}
+  end
+
+  @impl true
+  def handle_call({:send_chat, player_id, message}, _from, state) do
+    case Map.get(state.players, player_id) do
+      nil ->
+        {:reply, {:error, :not_found}, state}
+
+      player ->
+        message = String.trim(message)
+
+        if message == "" do
+          {:reply, {:error, :empty_message}, state}
+        else
+          chat_message = %{
+            player_name: player.name,
+            message: message,
+            timestamp: System.system_time(:millisecond)
+          }
+
+          # Keep last 50 messages
+          new_messages = Enum.take([chat_message | state.chat_messages], 50)
+          new_state = %{state | chat_messages: new_messages}
+
+          broadcast(state.id, new_state)
+          {:reply, :ok, new_state}
+        end
+    end
   end
 
   # --- Private Helpers ---

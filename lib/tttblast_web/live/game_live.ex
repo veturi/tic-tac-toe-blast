@@ -31,7 +31,9 @@ defmodule TttblastWeb.GameLive do
          round: game_state.round,
          round_result: game_state.round_result,
          winner: game_state.winner,
-         completed_lines: game_state.completed_lines
+         completed_lines: game_state.completed_lines,
+         chat_messages: game_state.chat_messages,
+         chat_input: ""
        )}
     else
       # Initial static render before WebSocket connects
@@ -52,7 +54,9 @@ defmodule TttblastWeb.GameLive do
          round: 0,
          round_result: nil,
          winner: nil,
-         completed_lines: %{red: [], blue: []}
+         completed_lines: %{red: [], blue: []},
+         chat_messages: [],
+         chat_input: ""
        )}
     end
   end
@@ -93,7 +97,8 @@ defmodule TttblastWeb.GameLive do
        round: state.round,
        round_result: state.round_result,
        winner: state.winner,
-       completed_lines: state.completed_lines
+       completed_lines: state.completed_lines,
+       chat_messages: state.chat_messages
      )}
   end
 
@@ -133,6 +138,15 @@ defmodule TttblastWeb.GameLive do
   def handle_event("start_with_bots", _params, socket) do
     Game.start_with_bots(socket.assigns.game_id)
     {:noreply, socket}
+  end
+
+  def handle_event("send_chat", %{"message" => message}, socket) do
+    Game.send_chat(socket.assigns.game_id, socket.assigns.player_id, message)
+    {:noreply, assign(socket, chat_input: "")}
+  end
+
+  def handle_event("update_chat_input", %{"message" => message}, socket) do
+    {:noreply, assign(socket, chat_input: message)}
   end
 
   def handle_event("pick_color", %{"color" => color}, socket) do
@@ -444,6 +458,39 @@ defmodule TttblastWeb.GameLive do
         <!-- Game State Debug -->
         <div class="mt-6 text-center text-sm text-base-content/50">
           State: {@game_state} | Round: {@round}
+        </div>
+
+        <!-- Chat -->
+        <div class="mt-6 w-full max-w-md mx-auto">
+          <div class="card bg-base-200 shadow-xl">
+            <div class="card-body p-4">
+              <h3 class="text-sm font-bold mb-2">Chat</h3>
+              <!-- Messages -->
+              <div class="h-32 overflow-y-auto bg-base-300 rounded p-2 mb-2 text-sm" id="chat-messages">
+                <div :for={msg <- Enum.reverse(@chat_messages)} class="mb-1">
+                  <span class="font-semibold">{msg.player_name}:</span>
+                  <span class="text-base-content/80">{msg.message}</span>
+                </div>
+                <div :if={@chat_messages == []} class="text-base-content/50 italic">
+                  No messages yet
+                </div>
+              </div>
+              <!-- Input -->
+              <form phx-submit="send_chat" class="flex gap-2">
+                <input
+                  type="text"
+                  name="message"
+                  value={@chat_input}
+                  phx-change="update_chat_input"
+                  placeholder="Type a message..."
+                  class="input input-bordered input-sm flex-1"
+                  maxlength="200"
+                  autocomplete="off"
+                />
+                <button type="submit" class="btn btn-primary btn-sm">Send</button>
+              </form>
+            </div>
+          </div>
         </div>
       </div>
     </div>
