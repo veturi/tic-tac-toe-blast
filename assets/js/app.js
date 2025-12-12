@@ -46,6 +46,55 @@ liveSocket.connect()
 // >> liveSocket.disableLatencySim()
 window.liveSocket = liveSocket
 
+// Particle Burst Effect for buttons
+function createParticleBurst(e) {
+  const colors = ['#ef4444', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899']
+  const particleCount = 12
+  const rect = e.currentTarget.getBoundingClientRect()
+  const x = e.clientX || rect.left + rect.width / 2
+  const y = e.clientY || rect.top + rect.height / 2
+
+  for (let i = 0; i < particleCount; i++) {
+    const particle = document.createElement('div')
+    particle.className = 'particle'
+
+    const size = Math.random() * 8 + 4
+    const angle = (Math.PI * 2 * i) / particleCount + Math.random() * 0.5
+    const velocity = Math.random() * 80 + 50
+    const tx = Math.cos(angle) * velocity
+    const ty = Math.sin(angle) * velocity
+
+    particle.style.cssText = `
+      left: ${x}px;
+      top: ${y}px;
+      width: ${size}px;
+      height: ${size}px;
+      background: ${colors[Math.floor(Math.random() * colors.length)]};
+      --tx: ${tx}px;
+      --ty: ${ty}px;
+    `
+
+    document.body.appendChild(particle)
+    particle.addEventListener('animationend', () => particle.remove())
+  }
+}
+
+// Apply particle effect to buttons with btn-blast class
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.btn-blast').forEach(btn => {
+    btn.addEventListener('click', createParticleBurst)
+  })
+})
+
+// Also handle dynamically loaded content
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.btn-blast')
+  if (btn && !btn._particleHandler) {
+    btn._particleHandler = true
+    createParticleBurst(e)
+  }
+})
+
 // The lines below enable quality of life phoenix_live_reload
 // development features:
 //
